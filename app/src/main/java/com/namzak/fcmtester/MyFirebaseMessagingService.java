@@ -15,6 +15,7 @@ package com.namzak.fcmtester;
  * limitations under the License.
  */
 
+import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -23,30 +24,37 @@ import android.content.Intent;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import com.namzak.fcmtester.http.HttpRequest;
+import com.namzak.fcmtester.http.HttpResponse;
 //import com.google.firebase.quickstart.fcm.R;
 
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 /**
  * NOTE: There can only be one service in each app that receives FCM messages. If multiple
  * are declared in the Manifest then the first one will be chosen.
- *
+ * <p>
  * In order to make this Java sample functional, you must remove the following from the Kotlin messaging
  * service in the AndroidManifest.xml:
- *
+ * <p>
  * <intent-filter>
- *   <action android:name="com.google.firebase.MESSAGING_EVENT" />
+ * <action android:name="com.google.firebase.MESSAGING_EVENT" />
  * </intent-filter>
  */
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "MyFirebaseMsgService";
+    private MyLogs myLogs;
 
     /**
      * Called when message is received.
@@ -72,21 +80,58 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         // messages. For more see: https://firebase.google.com/docs/cloud-messaging/concept-options
         // [END_EXCLUDE]
 
-        // TODO(developer): Handle FCM messages here.
         // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
-        Log.d(TAG, "From: " + remoteMessage.getFrom());
 
+        if (myLogs == null)
+            myLogs = new MyLogs(this);
+        Log.d(TAG, "From: " + remoteMessage.getFrom());
+        myLogs.info("From: " + remoteMessage.getFrom());
         // Check if message contains a data payload.
         if (remoteMessage.getData().size() > 0) {
             Log.d(TAG, "Message data payload: " + remoteMessage.getData());
+            myLogs.info("Message data payload: " + remoteMessage.getData());
 
-            if (/* Check if data needs to be processed by long running job */ true) {
-                // For long-running tasks (10 seconds or more) use WorkManager.
-                scheduleJob();
-            } else {
-                // Handle message within 10 seconds
-                handleNow();
-            }
+
+            String body = remoteMessage.getData().get("body");
+            Intent intent = new Intent(this, MyReceiver.class);
+            intent.putExtra("body", body);
+            sendBroadcast(intent);
+//            try {
+//                JSONObject jBody = new JSONObject(body);
+//                final long pingId = jBody.optLong("pingId");
+//                myLogs.info("receiving message with pingId= " + pingId);
+//
+//                String url = MainActivity.BASE_URL + "/FcmAck";
+//                JSONObject json = new JSONObject();
+//                try {
+//                    @SuppressLint("HardwareIds") String android_id = Settings.Secure.getString(getContentResolver(),
+//                            Settings.Secure.ANDROID_ID);
+//                    json.put("pingId", pingId);
+//                    json.put("androidId", android_id);
+//                    json.put("name", Build.BOARD + " " + Build.MODEL);
+//                } catch (JSONException e) {
+//                    e.printStackTrace();
+//                }
+//                new HttpRequest().Post(url, json.toString()).setOnResultListener(new HttpRequest.OnResultListener() {
+//                    @Override
+//                    public void onFailure() {
+//                        myLogs.info("Network Error! sending Ack with pingId " + pingId);
+//                    }
+//
+//                    @Override
+//                    public void onPreRequest() {
+//
+//                    }
+//
+//                    @Override
+//                    public void onResponse(HttpResponse response) {
+//                        myLogs.info("Sending ACK message = " + response.getResult());
+//                    }
+//                }).execute();
+//
+//            } catch (JSONException e) {
+//                e.printStackTrace();
+//            }
 
         }
 
@@ -139,14 +184,42 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     /**
      * Persist token to third-party servers.
-     *
+     * <p>
      * Modify this method to associate the user's FCM InstanceID token with any server-side account
      * maintained by your application.
      *
      * @param token The new token.
      */
     private void sendRegistrationToServer(String token) {
-        // TODO: Implement this method to send token to your app server.
+        if (myLogs == null)
+            myLogs = new MyLogs(this);
+        String url = MainActivity.BASE_URL + "/FCMToken";
+        JSONObject json = new JSONObject();
+        try {
+            @SuppressLint("HardwareIds") String android_id = Settings.Secure.getString(getContentResolver(),
+                    Settings.Secure.ANDROID_ID);
+            json.put("token", token);
+            json.put("androidId", android_id);
+            json.put("name", Build.BOARD + " " + Build.MODEL);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        new HttpRequest().Post(url, json.toString()).setOnResultListener(new HttpRequest.OnResultListener() {
+            @Override
+            public void onFailure() {
+                myLogs.info("Network Error! sending fcm token to server");
+            }
+
+            @Override
+            public void onPreRequest() {
+
+            }
+
+            @Override
+            public void onResponse(HttpResponse response) {
+                myLogs.info("Sending fcm token message = " + response.getResult());
+            }
+        }).execute();
     }
 
     /**

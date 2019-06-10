@@ -5,7 +5,7 @@ android {
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.namzak.fcmtester"
-        minSdkVersion 15
+        minSdkVersion 16
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -33,4 +33,5 @@ dependencies {
     implementation 'com.google.firebase:firebase-messaging:18.0.0'
     implementation 'com.google.firebase:firebase-iid:18.0.0'
     implementation 'android.arch.work:work-runtime:1.0.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.0.0-RC1'
 }
